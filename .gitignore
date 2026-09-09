@@ -1,0 +1,68 @@
+# ============================================================
+# Raven Project .gitignore
+# ============================================================
+# This file prevents local development toolchains, build
+# artifacts, and generated files from being committed to Git.
+# ============================================================
+
+# ----- Android SDK / NDK -----
+android-sdk/
+android-sdk-*/
+sdk/
+ndk/
+ndk-*/
+
+# ----- JDK -----
+jdk-*/
+jdk/
+
+# ----- Gradle distribution (local installs, NOT wrapper config) -----
+.gradle/
+gradle-*/
+gradle/wrapper/gradle-*/
+
+# ----- Zip archives (toolchain downloads) -----
+*.zip
+
+# ----- Build output -----
+**/build/
+**/.cxx/
+.externalNativeBuild/
+
+# ----- APK / AAB / native binaries -----
+*.apk
+*.aab
+*.so
+*.dll
+*.exe
+*.dex
+
+# ----- IDE -----
+.idea/
+*.iml
+.vscode/
+
+# ----- Local Android configuration -----
+local.properties
+
+# ----- Models (GGUF, binary weights) -----
+*.gguf
+*.gguf.part
+*.bin
+
+# ----- Environment / secrets -----
+.env
+.env.*
+!.env.example
+secrets/
+
+# ----- Logs / temp / build output text -----
+*.log
+*.tmp
+build-error.txt
+build-output.txt
+
+# ----- OS metadata -----
+.DS_Store
+Thumbs.db
+Desktop.ini

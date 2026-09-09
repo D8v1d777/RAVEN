@@ -1,0 +1,36 @@
+RAVEN PROJECT PROGRESS SUMMARY
+===============================
+
+FIXES APPLIED:
+1. ModelDao.kt: Fixed SQL query syntax for NULLS LAST compatibility (replaced with CASE WHEN)
+2. build.gradle (project): Updated Kotlin version from 1.9.0 to 1.9.22 to match Compose compiler requirements
+3. MainActivity.kt: Added import for androidx.compose.foundation.layout.padding
+4. BasicGgufValidator.kt: Fixed getTotalMemory() to use ActivityManager.MemoryInfo properly
+5. ModelError.kt: Added 'override' keywords to message and cause properties; added ImportFailed error subclass
+6. LocalLlmProvider.kt: Updated imports to use com.raven.domain for GenerationEvent, GenerationRequest, ModelDescriptor
+7. LlmProvider.kt: Updated imports to use com.raven.domain for GenerationEvent, GenerationRequest, ModelDescriptor
+
+CURRENT BUILD ERRORS (from last quick build):
+1. MainActivity.kt:34:57 - None of the padding functions can be called with the arguments supplied
+   - Issue: Modifier.padding(24.sp) - need to check correct padding usage
+2. BasicGgufValidator.kt:145:24 - Unresolved reference: totalDeviceMemory
+   - Issue: Should be memoryInfo.totalDeviceMemory after creating MemoryInfo object
+3. LocalLlmProvider.kt: Multiple unresolved references (GenerationEvent, GenerationRequest, ModelDescriptor)
+   - Issue: Despite import changes, references not resolving - check package names
+
+TODO:
+- Fix padding usage in MainActivity.kt (likely need to use Modifier.padding(all = 24.dp) or similar)
+- Verify MemoryInfo usage in BasicGgufValidator.kt
+- Verify correct package imports for domain classes in LocalLlmProvider.kt and LlmProvider.kt
+- Ensure all domain classes are in correct packages (check if GenerationEvent etc. are in com.raven.domain or com.raven.domain.model)
+
+LAST KNOWN WORKING STATE:
+- Project was assembling resources and processing manifests correctly before Kotlin compilation errors
+- Dependencies and repositories are configured correctly
+- Kotlin daemon issues resolved by disabling daemon and using proper version
+
+NEXT STEPS:
+1. Fix the padding call in MainActivity.kt
+2. Fix the MemoryInfo reference in BasicGgufValidator.kt
+3. Verify import correctness for domain classes
+4. Attempt full build again
