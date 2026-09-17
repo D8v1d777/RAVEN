@@ -20,6 +20,16 @@ android {
             abiFilters 'arm64-v8a', 'x86_64'
         }
 
+        externalNativeBuild {
+            cmake {
+                // The debug app variant must not inherit CMake's Debug (-O0) build type:
+                // an unoptimized llama.cpp is ~30-50x slower on ARM and makes on-device
+                // inference appear to hang. Always build the native layer optimized.
+                arguments "-DCMAKE_BUILD_TYPE=Release"
+            }
+        }
+
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -73,6 +83,7 @@ dependencies {
     implementation "androidx.compose.material3:material3:1.2.1"
     implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.8.0"
     implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.0"
+    implementation "androidx.lifecycle:lifecycle-viewmodel-compose:2.8.0"
     implementation "androidx.navigation:navigation-compose:2.7.7"
     implementation "androidx.room:room-runtime:2.6.1"
     implementation "androidx.room:room-ktx:2.6.1"
@@ -84,6 +95,7 @@ dependencies {
     kapt "com.github.bumptech.glide:compiler:4.16.0"
 
     testImplementation "junit:junit:4.13.2"
+    testImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0"
     androidTestImplementation "androidx.test.ext:junit:1.1.5"
     androidTestImplementation "androidx.test.espresso:espresso-core:3.5.1"
     debugImplementation "androidx.compose.ui:ui-tooling:1.5.10"

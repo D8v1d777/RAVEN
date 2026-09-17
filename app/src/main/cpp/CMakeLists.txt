@@ -2,6 +2,12 @@ cmake_minimum_required(VERSION 3.31.6)
 
 project("raven_llama" LANGUAGES C CXX)
 
+# Raven always builds the native layer optimized: an -O0 llama.cpp is 30-50x
+# slower on ARM and makes on-device inference appear to hang. AGP passes
+# CMAKE_BUILD_TYPE=Debug for the app's debug variant, so force Release here.
+set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+
+
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)

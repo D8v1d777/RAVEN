@@ -4,6 +4,7 @@ import com.raven.domain.GenerationEvent
 import com.raven.domain.GenerationRequest
 import com.raven.domain.ModelDescriptor
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 
 /**
  * Contract for language model providers (local or remote).
@@ -16,6 +17,19 @@ interface LlmProvider {
     
     /** Human-readable provider name */
     val displayName: String
+
+    /**
+     * True when inference runs entirely on this device and no conversation data
+     * leaves it. Privacy UI relies on this: an online provider must never be
+     * presented as local.
+     */
+    val runsOnDevice: Boolean
+
+    /**
+     * Reactive view of the currently loaded model.
+     * Null means the provider cannot generate yet.
+     */
+    val selectedModel: StateFlow<ModelDescriptor?>
     
     /**
      * List available models for this provider.
@@ -51,6 +65,12 @@ interface LlmProvider {
      */
     suspend fun getSelectedModel(): ModelDescriptor?
     
+    /**
+     * Release the provider's conversation session so the next request starts clean.
+     * Local providers drop the llama.cpp KV cache and chat history.
+     */
+    suspend fun resetSession(): Result<Unit> = Result.success(Unit)
+
     /**
      * Unload/release the current model.
      * Should free resources on local providers.

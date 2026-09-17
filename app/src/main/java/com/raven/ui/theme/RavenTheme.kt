@@ -1,73 +1,72 @@
 package com.raven.ui.theme
 
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.sp
 
-private val LightColors = lightColorScheme(
-    primary = Color(0xFF6200EE),
-    secondary = Color(0xFF03DAC5),
-    background = Color.White,
-    surface = Color(0xFFFFFBFE),
-    error = Color(0xFFB00020),
-    onPrimary = Color.White,
-    onSecondary = Color.Black,
-    onBackground = Color.Black,
-    onSurface = Color.Black,
-    onError = Color.White
+/**
+ * Raven is a dark-first product. There is deliberately no light scheme: a washed-out
+ * light mode would contradict the identity, and a fake one would be worse than none.
+ */
+private val RavenColorScheme = darkColorScheme(
+    primary = RavenColors.Primary,
+    onPrimary = RavenColors.OnPrimary,
+    primaryContainer = RavenColors.AccentGlow,
+    onPrimaryContainer = RavenColors.SecondaryAccent,
+    secondary = RavenColors.SecondaryAccent,
+    onSecondary = RavenColors.OnSecondary,
+    tertiary = RavenColors.MutedCrimson,
+    onTertiary = RavenColors.OnPrimary,
+    background = RavenColors.Background,
+    onBackground = RavenColors.TextPrimary,
+    surface = RavenColors.SurfaceDefault,
+    onSurface = RavenColors.TextPrimary,
+    surfaceVariant = RavenColors.SurfaceVariant,
+    onSurfaceVariant = RavenColors.TextSecondary,
+    error = RavenColors.ErrorText,
+    onError = RavenColors.Background,
+    errorContainer = RavenColors.ErrorContainer,
+    onErrorContainer = RavenColors.ErrorText,
+    outline = RavenColors.Divider,
 )
 
-private val DarkColors = darkColorScheme(
-    primary = Color(0xFFBB86FC),
-    secondary = Color(0xFF03DAC5),
-    background = Color(0xFF121212),
-    surface = Color(0xFF121212),
-    error = Color(0xFFCF6679),
-    onPrimary = Color.Black,
-    onSecondary = Color.Black,
-    onBackground = Color.White,
-    onSurface = Color.White,
-    onError = Color.Black
-)
+/** Cinematic headings use a serif face; body text stays neutral and highly readable. */
+val RavenSerif = FontFamily.Serif
 
 @Composable
-fun RavenTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    content: @Composable () -> Unit
-) {
-    val context = LocalContext.current
-    if (!darkTheme) {
-        MaterialTheme(
-            colorScheme = LightColors,
-            typography = Typography,
-            content = content
-        )
-    } else {
-        MaterialTheme(
-            colorScheme = DarkColors,
-            typography = Typography,
-            content = content
-        )
-    }
-}
-
-private val Typography = androidx.compose.material3.Typography(
-    bodyLarge = TextStyle(
-        fontSize = 16.sp,
-        fontWeight = FontWeight.Normal
+fun RavenTheme(content: @Composable () -> Unit) {
+    MaterialTheme(
+        colorScheme = RavenColorScheme,
+        typography = RavenMaterialTypography,
+        content = content,
     )
+}
+
+private val RavenMaterialTypography = Typography(
+    displayLarge = RavenTypography.DisplayLarge.serifDisplay(),
+    displayMedium = RavenTypography.DisplayMedium.serifDisplay(),
+    displaySmall = RavenTypography.DisplaySmall.serifDisplay(),
+    headlineLarge = RavenTypography.HeadlineLarge.serifDisplay(),
+    headlineMedium = RavenTypography.HeadlineMedium.serifDisplay(),
+    headlineSmall = RavenTypography.HeadlineSmall.serifDisplay(),
+    titleLarge = RavenTypography.TitleLarge.serifDisplay(),
+    titleMedium = RavenTypography.TitleMedium,
+    titleSmall = RavenTypography.TitleSmall,
+    bodyLarge = RavenTypography.BodyLarge,
+    bodyMedium = RavenTypography.BodyMedium,
+    bodySmall = RavenTypography.BodySmall,
+    labelLarge = RavenTypography.LabelLarge,
+    labelMedium = RavenTypography.LabelMedium,
+    labelSmall = RavenTypography.LabelSmall,
 )
 
-// Helper method to determine if system is in dark theme
-@Composable
-fun isSystemInDarkTheme(): Boolean {
-    val uiMode = LocalContext.current.resources.configuration.uiMode
-    return uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
-            android.content.res.Configuration.UI_MODE_NIGHT_YES
-}
+private fun TextStyle.serifDisplay(): TextStyle = copy(
+    fontFamily = RavenSerif,
+    fontWeight = FontWeight.Medium,
+    letterSpacing = 0.2.sp,
+)

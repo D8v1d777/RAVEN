@@ -66,3 +66,12 @@ build-output.txt
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# ----- Debug session artifacts (logs, UI dumps, scratch) -----
+*.logcat
+d2-*.txt
+t[0-9].txt
+ui-*.xml
+_ui.py
+_ticks.py
+import-test-error.txt

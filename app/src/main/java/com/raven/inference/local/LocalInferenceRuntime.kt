@@ -19,6 +19,12 @@ interface LocalInferenceRuntime {
     suspend fun cancelGeneration() = Unit
 
     /**
+     * Drop the current conversation session: chat history, KV cache and token positions.
+     * Called when the user starts a new conversation.
+     */
+    suspend fun resetSession() = Unit
+
+    /**
      * Load a GGUF model into memory.
      * After this completes, the model is ready for generation.
      * @throws Exception if loading fails

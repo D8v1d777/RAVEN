@@ -261,12 +261,28 @@ static std::vector<common_chat_msg> chat_msgs;
 static llama_pos system_prompt_position;
 static llama_pos current_position;
 
+/**
+ * The system prompt that is currently applied to the live session.
+ * The Kotlin layer re-sends the system prompt on every turn; keeping it here lets
+ * processSystemPrompt() continue an existing session instead of discarding the
+ * conversation (and KV cache) on every single request.
+ */
+static std::string active_system_prompt;
+
+/**
+ * Set when a generation was cancelled. The assistant turn was never appended to
+ * chat_msgs, so the next turn must start from a clean session to keep the chat
+ * template well formed.
+ */
+static std::atomic_bool session_reset_required{false};
+
 static void reset_long_term_states(const bool clear_kv_cache = true) {
     chat_msgs.clear();
+    active_system_prompt.clear();
     system_prompt_position = 0;
     current_position = 0;
 
-    if (clear_kv_cache)
+    if (clear_kv_cache && g_context)
         llama_memory_clear(llama_get_memory(g_context), false);
 }
 
@@ -308,11 +324,13 @@ static llama_pos stop_generation_position;
 static std::atomic_bool generation_cancelled{false};
 static std::string cached_token_chars;
 static std::ostringstream assistant_ss;
+static bool assistant_message_recorded = false;
 
 static void reset_short_term_states() {
     stop_generation_position = 0;
     cached_token_chars.clear();
     assistant_ss.str("");
+    assistant_message_recorded = false;
 }
 
 static int decode_tokens_in_batches(
@@ -359,21 +377,34 @@ Java_com_raven_inference_local_LlamaCppInferenceRuntime_processSystemPrompt(
         jobject /*unused*/,
         jstring jsystem_prompt
 ) {
+    // Obtain system prompt from JEnv
+    const auto *system_prompt_chars = env->GetStringUTFChars(jsystem_prompt, nullptr);
+    std::string system_prompt(system_prompt_chars ? system_prompt_chars : "");
+    env->ReleaseStringUTFChars(jsystem_prompt, system_prompt_chars);
+    LOGd("%s: System prompt received: \n%s", __func__, system_prompt.c_str());
+
+    // Continue the live session when the caller re-sends the same system prompt.
+    // Raven sends the system prompt on every turn, but llama.cpp already holds the
+    // conversation history and the KV positions for this session.
+    const bool force_fresh_session = session_reset_required.exchange(false);
+    if (!force_fresh_session
+        && !chat_msgs.empty()
+        && !active_system_prompt.empty()
+        && active_system_prompt == system_prompt) {
+        LOGi("%s: Continuing session with %d recorded messages", __func__, (int) chat_msgs.size());
+        return 0;
+    }
+
     // Reset long-term & short-term states
     reset_long_term_states();
     reset_short_term_states();
 
-    // Obtain system prompt from JEnv
-    const auto *system_prompt = env->GetStringUTFChars(jsystem_prompt, nullptr);
-    LOGd("%s: System prompt received: \n%s", __func__, system_prompt);
-    std::string formatted_system_prompt(system_prompt);
-
     // Format system prompt if applicable
+    std::string formatted_system_prompt(system_prompt);
     const bool has_chat_template = common_chat_templates_was_explicit(g_chat_templates.get());
     if (has_chat_template) {
         formatted_system_prompt = chat_add_and_format(ROLE_SYSTEM, system_prompt);
     }
-    env->ReleaseStringUTFChars(jsystem_prompt, system_prompt);
 
     // Tokenize system prompt
     const auto system_tokens = common_tokenize(g_context, formatted_system_prompt,
@@ -398,6 +429,7 @@ Java_com_raven_inference_local_LlamaCppInferenceRuntime_processSystemPrompt(
 
     // Update position
     system_prompt_position = current_position = (int) system_tokens.size();
+    active_system_prompt = system_prompt;
     return 0;
 }
 
@@ -440,6 +472,10 @@ Java_com_raven_inference_local_LlamaCppInferenceRuntime_processUserPrompt(
         LOGw("%s: User prompt too long! Skipped %d tokens!", __func__, skipped_tokens);
     }
 
+    // Number of tokens that are actually decoded. Position tracking must use this,
+    // not the pre-truncation count, or the context positions desynchronise.
+    const int decoded_user_tokens = (int) user_tokens.size();
+
     // Decode user tokens in batches
     if (decode_tokens_in_batches(g_context, g_batch, user_tokens, current_position, true)) {
         LOGe("%s: llama_decode() failed!", __func__);
@@ -447,8 +483,9 @@ Java_com_raven_inference_local_LlamaCppInferenceRuntime_processUserPrompt(
     }
 
     // Update position
-    current_position += user_prompt_size;
-    stop_generation_position = current_position + user_prompt_size + n_predict;
+    current_position += decoded_user_tokens;
+    // Generate at most n_predict tokens after the user turn.
+    stop_generation_position = current_position + n_predict;
     return 0;
 }
 
@@ -505,6 +542,12 @@ Java_com_raven_inference_local_LlamaCppInferenceRuntime_generateNextToken(
     // Stop if reaching the marked position
     if (current_position >= stop_generation_position) {
         LOGw("%s: STOP: hitting stop position: %d", __func__, stop_generation_position);
+        // Record the truncated assistant turn so the next request keeps a valid
+        // user/assistant alternation in the chat template.
+        if (!assistant_message_recorded && !assistant_ss.str().empty()) {
+            chat_add_and_format(ROLE_ASSISTANT, assistant_ss.str());
+            assistant_message_recorded = true;
+        }
         return nullptr;
     }
 
@@ -527,6 +570,7 @@ Java_com_raven_inference_local_LlamaCppInferenceRuntime_generateNextToken(
     if (llama_vocab_is_eog(llama_model_get_vocab(g_model), new_token_id)) {
         LOGd("id: %d,\tIS EOG!\nSTOP.", new_token_id);
         chat_add_and_format(ROLE_ASSISTANT, assistant_ss.str());
+        assistant_message_recorded = true;
         return nullptr;
     }
 
@@ -554,6 +598,9 @@ extern "C"
 JNIEXPORT void JNICALL
 Java_com_raven_inference_local_LlamaCppInferenceRuntime_nativeCancelGeneration(JNIEnv * /*unused*/, jobject /*unused*/) {
     generation_cancelled.store(true);
+    // The cancelled assistant turn is never appended to the chat history, so the
+    // next request must start from a clean session.
+    session_reset_required.store(true);
 }
 
 extern "C"
@@ -564,10 +611,26 @@ Java_com_raven_inference_local_LlamaCppInferenceRuntime_cancelGeneration(JNIEnv 
 
 extern "C"
 JNIEXPORT void JNICALL
+Java_com_raven_inference_local_LlamaCppInferenceRuntime_nativeResetSession(JNIEnv * /*unused*/, jobject /*unused*/) {
+    // Forget the conversation: chat history, KV cache, token positions and any pending
+    // cancellation. Used when the user starts a new conversation.
+    reset_long_term_states();
+    reset_short_term_states();
+    generation_cancelled.store(false);
+    session_reset_required.store(false);
+    LOGi("%s: Session reset", __func__);
+}
+
+extern "C"
+JNIEXPORT void JNICALL
 Java_com_raven_inference_local_LlamaCppInferenceRuntime_nativeUnload(JNIEnv * /*unused*/, jobject /*unused*/) {
     // Reset long-term & short-term states
     reset_long_term_states();
     reset_short_term_states();
+
+    // A reloaded model must start from a clean session
+    generation_cancelled.store(false);
+    session_reset_required.store(false);
 
     // Free up resources
     if (g_sampler) {

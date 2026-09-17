@@ -7,6 +7,7 @@ import com.raven.domain.model.ModelError
 import com.raven.domain.model.ModelMetadata
 import java.io.File
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -60,7 +61,10 @@ class LlamaCppInferenceRuntime(
         }
     }
 
-    override suspend fun cancelGeneration() = withContext(Dispatchers.Default) {
+    override suspend fun cancelGeneration() = withContext(Dispatchers.Default + NonCancellable) {
+        // NonCancellable: this is called from the cancellation handler of the collector,
+        // so the native generation loop must be signalled even though the caller is
+        // already cancelled.
         nativeCancelGeneration()
     }
 
@@ -69,6 +73,14 @@ class LlamaCppInferenceRuntime(
             if (loadedModel != null) {
                 nativeUnload()
                 loadedModel = null
+            }
+        }
+    }
+
+    override suspend fun resetSession() = withContext(Dispatchers.Default) {
+        stateMutex.withLock {
+            if (loadedModel != null) {
+                nativeResetSession()
             }
         }
     }
@@ -101,6 +113,7 @@ class LlamaCppInferenceRuntime(
     private external fun processUserPrompt(userPrompt: String, maxOutputTokens: Int): Int
     private external fun generateNextToken(): String?
     private external fun nativeCancelGeneration()
+    private external fun nativeResetSession()
     private external fun nativeUnload()
 
     companion object {
