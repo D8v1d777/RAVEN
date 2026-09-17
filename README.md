@@ -11,7 +11,7 @@
 -->
 
 <p align="center">
-  <img src="YOUR_RAVEN_IMAGE_HERE.png" alt="Raven — Gothic AI Companion" width="320"/>
+  <img src="docs/branding/raven-avatar.png" alt="Raven — Gothic AI Companion" width="320"/>
 </p>
 
 <p align="center">
